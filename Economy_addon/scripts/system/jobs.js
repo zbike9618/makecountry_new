@@ -1,4 +1,6 @@
-import { world } from "@minecraft/server";
+import * as server from "@minecraft/server";
+import { world , system , CommandPermissionLevel , CustomCommandStatus} from "@minecraft/server";
+import * as ui from "@minecraft/server-ui";
 import { JOB_CONFIG } from "../config/jobs_config.js";
 
 /**
@@ -15,7 +17,7 @@ world.afterEvents.playerBreakBlock.subscribe(ev => {
     const { player, brokenBlockPermutation } = ev;
     const blockId = brokenBlockPermutation.type.id;
 
-    for (const jobId in JOB_CONFIG) {
+    for (const jobId of ["miner", "lumberjack", "farmer", "netherdigger"]) { // ← 制限！
         if (!player.hasTag(`job:${jobId}`)) continue;
 
         const job = JOB_CONFIG[jobId];
@@ -63,7 +65,7 @@ world.afterEvents.entityDie.subscribe(ev => {
 
     const mobId = deadEntity.typeId;
 
-    for (const jobId in JOB_CONFIG) {
+    for (const jobId of ["hunter"]) { // ← 制限！
         if (!killer.hasTag(`job:${jobId}`)) continue;
 
         const job = JOB_CONFIG[jobId];
@@ -92,4 +94,75 @@ world.afterEvents.itemCompleteUse.subscribe(ev => {
     player.runCommand(`scoreboard players add @s money ${reward}`);
     const score = world.scoreboard.getObjective("money").getScore(player);
     player.sendMessage(`§a漁師として魚を釣って ${reward} コイン獲得！ 残高: ${score}`);
+});
+
+
+//job form
+
+function show_form(player){
+    const form = new ui.ActionFormData();
+    form.title("職業選択");
+    form.button("狩人");
+    form.button("農夫");
+    form.button("鉱夫");
+    form.button("木こり");
+    form.button("ネザー掘り士");
+    form.button("建築士");
+    form.show(player).then((response) => {
+    if (response.canceled) return;
+
+    // 既存のjobタグを削除
+    for (const jobId of Object.keys(JOB_CONFIG)) {
+        player.removeTag(`job:${jobId}`);
+    }
+
+    switch(response.selection){
+        case 0:
+            player.addTag("job:hunter");
+            player.sendMessage("§a職業: 狩人 に就きました！");
+            break;
+        case 1:
+            player.addTag("job:farmer");
+            player.sendMessage("§a職業: 農夫 に就きました！");
+            break;
+        case 2:
+            player.addTag("job:miner");
+            player.sendMessage("§a職業: 鉱夫 に就きました！");
+            break;
+        case 3:
+            player.addTag("job:lumberjack");
+            player.sendMessage("§a職業: 木こり に就きました！");
+            break;
+        case 4:
+            player.addTag("job:netherdigger");
+            player.sendMessage("§a職業: ネザー掘り士 に就きました！");
+            break;
+        case 5:
+            player.addTag("job:builder");
+            player.sendMessage("§a職業: 建築士 に就きました！");
+            break;
+    }
+
+    }).catch(error =>
+        player.sendMessage("An error occurred: " + error.message)
+    );
+}
+
+server.system.beforeEvents.startup.subscribe(ev => {
+    ev.customCommandRegistry.registerCommand({
+        name:"mc:jobs",
+        description:"職業を選択するコマンド",
+        permissionLevel : server.CommandPermissionLevel.Any,
+        mandatoryParameters:[
+        ],
+        optionalParameters:[
+        ]
+    },(origin, arg) => {
+        if (origin.sourceEntity?.typeId === "minecraft:player") {
+            let player = origin.sourceEntity;
+            system.run(() => {  // 1tick後に安全に実行
+                show_form(player);
+            });
+        }
+    });
 });
