@@ -12,7 +12,7 @@
       "type": "script",
       "uuid": "cba26fb1-c9fa-4d5b-ae4d-ab6f4d97e5b1",
       "version": [1, 0, 0],
-      "entry": "scripts/commands/commandRegister.js"
+      "entry": "scripts/main.js"
     }
   ],
 	"dependencies": [
