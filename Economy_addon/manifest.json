@@ -3,22 +3,34 @@
   "header": {
     "name": "economy_addon",
     "description": "経済・国システムを管理するアドオン",
-    "uuid": "11111111-1111-1111-1111-111111111111",
+    "uuid": "a9eef8c9-2449-4147-b6e2-95a65d56e6dd",
     "version": [1, 0, 0],
     "min_engine_version": [1, 21, 100]
   },
   "modules": [
     {
       "type": "script",
-      "uuid": "22222222-2222-2222-2222-222222222222",
+      "uuid": "cba26fb1-c9fa-4d5b-ae4d-ab6f4d97e5b1",
       "version": [1, 0, 0],
       "entry": "scripts/commands/commandRegister.js"
     }
   ],
-  "dependencies": [
-    {
-      "module_name": "@minecraft/server",
-      "version": "2.0.0-beta"
-    }
-  ]
+	"dependencies": [
+		{
+			"module_name": "@minecraft/server",
+			"version": "2.2.0-beta"
+		},
+		{
+			"module_name": "@minecraft/server-ui",
+			"version": "2.1.0-beta"
+		},
+		{
+			"module_name": "@minecraft/server-gametest",
+			"version": "1.0.0-beta"
+		},
+		{
+			"module_name": "@minecraft/server-admin",
+			"version": "1.0.0-beta"
+		}
+	]
 }
