@@ -4,12 +4,8 @@ import "./system/jobs.js";
 
 import "./system/money.js";
 
-import "./system/country.js";
-
-import "./system/joincountry.js";
+import "./system/makecountry.js";
 
 import "./system/resetcountry.js";
 
-import "./system/leavecountry.js";
-
-import "./system/listcountry.js"
+import "./system/country.js"

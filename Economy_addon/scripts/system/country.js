@@ -1,5 +1,5 @@
 import * as server from "@minecraft/server";
-import {world} from "@minecraft/server";
+import { world, system } from "@minecraft/server";
 import * as ui from "@minecraft/server-ui";
 
 const COUNTRY_LIST = "countries";
@@ -14,67 +14,80 @@ function safeSend(player, message) {
     }
 }
 
-// フォーム表示
-function show_form(player) {
-    const form = new ui.ModalFormData();
-    form.title("国作成");
-    form.textField("国名", "例: 日本");
-    form.toggle("平和主義");
+// 国一覧UI
+function showCountryUI(player) {
+    const form = new ui.ActionFormData();
+    form.title("国一覧");
+
+    // 国リストをDynamicPropertyから取得
+    const list = world.getDynamicProperty(COUNTRY_LIST) || "[]";
+    const countries = JSON.parse(list);
+
+    // プレイヤーの所属国を取得
+    const currentCountry = player.getDynamicProperty(PLAYER_COUNTRY);
+
+    for (const c of countries) {
+        const label = c.pacifist
+            ? `${c.name} [平和主義]`
+            : `${c.name} [非平和主義]`;
+
+        if (currentCountry === c.name) {
+            form.button(`§a${label}（所属中）`);
+        } else {
+            form.button(label);
+        }
+    }
 
     form.show(player).then(response => {
-        if (response.canceled) {
-            safeSend(player, "キャンセルされました");
-            return;
+        if (response.canceled) return;
+
+        const selected = countries[response.selection];
+        if (!selected) return;
+
+        const label = selected.pacifist
+            ? `${selected.name} [平和主義]`
+            : `${selected.name} [非平和主義]`;
+
+        // サブメニュー（参加 / 離脱）
+        const confirm = new ui.ActionFormData();
+        confirm.title(label);
+
+        if (currentCountry === selected.name) {
+            confirm.body(`あなたは現在「${label}」に所属しています。\nどうしますか？`);
+            confirm.button("§c離脱する");
+            confirm.button("§7キャンセル");
+
+            confirm.show(player).then(r => {
+                if (r.selection === 0) {
+                    player.setDynamicProperty(PLAYER_COUNTRY, undefined);
+                    safeSend(player, `§e国「${label}」を離脱しました`);
+                }
+            });
+        } else {
+            confirm.body(`国「${label}」を選択しました。\nどうしますか？`);
+            confirm.button("§a参加する");
+            confirm.button("§7キャンセル");
+
+            confirm.show(player).then(r => {
+                if (r.selection === 0) {
+                    player.setDynamicProperty(PLAYER_COUNTRY, selected.name);
+                    safeSend(player, `§a国「${label}」に参加しました！`);
+                }
+            });
         }
-
-        const countryName = String(response.formValues[0]).trim();
-        const pacifist = Boolean(response.formValues[1]);
-
-        if (!countryName) {
-            safeSend(player, "国名を入力してください！");
-            return;
-        }
-
-        // プレイヤーが既に国に所属しているか確認
-        const playerStore = player.getDynamicProperty(PLAYER_COUNTRY);
-        if (playerStore) {
-            safeSend(player, "すでに国に所属しているため建国できません。");
-            return;
-        }
-
-        // 既存の国リストを取得
-        const list = world.getDynamicProperty(COUNTRY_LIST) || "[]";
-        const countries = JSON.parse(list);
-
-        if (countries.find(c => c.name === countryName)) {
-            safeSend(player, `国「${countryName}」はすでに存在します。`);
-            return;
-        }
-
-        // 国を追加
-        countries.push({ name: countryName, pacifist });
-        world.setDynamicProperty(COUNTRY_LIST, JSON.stringify(countries));
-
-        // プレイヤーをその国に参加させる
-        player.setDynamicProperty(PLAYER_COUNTRY, countryName);
-
-        safeSend(player, `国「${countryName}」を建国しました！`);
     });
 }
 
-// スタートアップイベント
+// スラッシュコマンド登録
 server.system.beforeEvents.startup.subscribe(ev => {
     ev.customCommandRegistry.registerCommand({
-        name: "mc:makecountry",
-        description: "国を作成するコマンド",
-        permissionLevel: server.CommandPermissionLevel.Any
-        // mandatoryParameters / optionalParameters は削除
-    }, (origin, arg) => {
-        if (origin.sourceEntity?.typeId === "minecraft:player") {
-            let player = origin.sourceEntity;
-            server.system.run(() => {
-                show_form(player);
-            });
+        name: "mc:country",
+        description: "国一覧を表示する",
+        permissionLevel: server.CommandPermissionLevel.Any,
+    }, (origin, args) => {
+        const player = origin.sourceEntity;
+        if (player?.typeId === "minecraft:player") {
+            system.run(() => showCountryUI(player));
         }
     });
 });
