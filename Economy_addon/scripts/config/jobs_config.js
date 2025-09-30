@@ -1,4 +1,4 @@
-export const JOB_LIMIT = 2; // 最大職業数
+export const JOB_LIMIT = 4; // 最大職業数
 
 // 職業ごとの報酬設定
 // 各職業ごとに、対象ブロックやモンスターと報酬額を設定
