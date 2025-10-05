@@ -1,11 +1,10 @@
 import * as server from "@minecraft/server";
-import {world} from "@minecraft/server";
+import { world } from "@minecraft/server";
 import * as ui from "@minecraft/server-ui";
 
 const COUNTRY_LIST = "countries";
 const PLAYER_COUNTRY = "playerCountry";
 
-// 安全にメッセージ送信
 function safeSend(player, message) {
     try {
         player.sendMessage(message);
@@ -14,7 +13,6 @@ function safeSend(player, message) {
     }
 }
 
-// フォーム表示
 function show_form(player) {
     const form = new ui.ModalFormData();
     form.title("国作成");
@@ -35,14 +33,12 @@ function show_form(player) {
             return;
         }
 
-        // プレイヤーが既に国に所属しているか確認
         const playerStore = player.getDynamicProperty(PLAYER_COUNTRY);
         if (playerStore) {
             safeSend(player, "すでに国に所属しているため建国できません。");
             return;
         }
 
-        // 既存の国リストを取得
         const list = world.getDynamicProperty(COUNTRY_LIST) || "[]";
         const countries = JSON.parse(list);
 
@@ -51,24 +47,28 @@ function show_form(player) {
             return;
         }
 
-        // 国を追加
+        // 国追加
         countries.push({ name: countryName, pacifist });
         world.setDynamicProperty(COUNTRY_LIST, JSON.stringify(countries));
 
-        // プレイヤーをその国に参加させる
+        // プレイヤーを国に参加
         player.setDynamicProperty(PLAYER_COUNTRY, countryName);
 
-        safeSend(player, `国「${countryName}」を建国しました！`);
+        // 国王タグを付与
+        // 国作成時、国王本人に所属国を設定
+        player.setDynamicProperty("country", countryName);
+        player.addTag("king");
+
+
+        safeSend(player, `国「${countryName}」を建国しました！ あなたは国王です。`);
     });
 }
 
-// スタートアップイベント
 server.system.beforeEvents.startup.subscribe(ev => {
     ev.customCommandRegistry.registerCommand({
         name: "mc:makecountry",
         description: "国を作成するコマンド",
         permissionLevel: server.CommandPermissionLevel.Any
-        // mandatoryParameters / optionalParameters は削除
     }, (origin, arg) => {
         if (origin.sourceEntity?.typeId === "minecraft:player") {
             let player = origin.sourceEntity;

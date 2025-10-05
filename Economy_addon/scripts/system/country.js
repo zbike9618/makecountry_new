@@ -5,7 +5,6 @@ import * as ui from "@minecraft/server-ui";
 const COUNTRY_LIST = "countries";
 const PLAYER_COUNTRY = "playerCountry";
 
-// 安全にメッセージ送信
 function safeSend(player, message) {
     try {
         player.sendMessage(message);
@@ -14,17 +13,25 @@ function safeSend(player, message) {
     }
 }
 
-// 国一覧UI
 function showCountryUI(player) {
+    const list = world.getDynamicProperty(COUNTRY_LIST) || "[]";
+    let countries = [];
+
+    try {
+        countries = JSON.parse(list);
+    } catch (e) {
+        console.warn("国リストのJSONが壊れています:", e);
+    }
+
+    if (!countries || countries.length === 0) {
+        safeSend(player, "§c国が見つかりませんでした。");
+        return;
+    }
+
+    const currentCountry = player.getDynamicProperty(PLAYER_COUNTRY);
+
     const form = new ui.ActionFormData();
     form.title("国一覧");
-
-    // 国リストをDynamicPropertyから取得
-    const list = world.getDynamicProperty(COUNTRY_LIST) || "[]";
-    const countries = JSON.parse(list);
-
-    // プレイヤーの所属国を取得
-    const currentCountry = player.getDynamicProperty(PLAYER_COUNTRY);
 
     for (const c of countries) {
         const label = c.pacifist
@@ -48,7 +55,6 @@ function showCountryUI(player) {
             ? `${selected.name} [平和主義]`
             : `${selected.name} [非平和主義]`;
 
-        // サブメニュー（参加 / 離脱）
         const confirm = new ui.ActionFormData();
         confirm.title(label);
 
@@ -59,6 +65,11 @@ function showCountryUI(player) {
 
             confirm.show(player).then(r => {
                 if (r.selection === 0) {
+                    // 国王なら離脱できない
+                    if (player.hasTag("king")) {
+                        safeSend(player, "§c国王なので離脱できません。");
+                        return;
+                    }
                     player.setDynamicProperty(PLAYER_COUNTRY, undefined);
                     safeSend(player, `§e国「${label}」を離脱しました`);
                 }
@@ -78,7 +89,6 @@ function showCountryUI(player) {
     });
 }
 
-// スラッシュコマンド登録
 server.system.beforeEvents.startup.subscribe(ev => {
     ev.customCommandRegistry.registerCommand({
         name: "mc:country",
