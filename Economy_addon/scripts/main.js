@@ -8,6 +8,6 @@ import "./system/makecountry.js";
 
 import "./system/resetcountry.js";
 
-import "./system/country.js"
+//import "./system/country.js"
 
-import "./system/settingscountry.js";
+//import "./system/settingscountry.js";

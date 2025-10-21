@@ -1,18 +1,37 @@
 import * as server from "@minecraft/server";
-import { world } from "@minecraft/server";
+import { world, system } from "@minecraft/server";
 import * as ui from "@minecraft/server-ui";
 
+// 定数
 const COUNTRY_LIST = "countries";
 const PLAYER_COUNTRY = "playerCountry";
 
-function safeSend(player, message) {
+// ====== JSONデータ管理ユーティリティ ======
+function GetAndParsePropertyData(id) {
+    const data = world.getDynamicProperty(id);
+    if (!data || typeof data !== "string") return [];
     try {
-        player.sendMessage(message);
+        return JSON.parse(data);
     } catch (e) {
-        console.warn("メッセージ送信失敗:", e);
+        console.warn(`[Country] JSON parse error for ${id}:`, e);
+        return [];
     }
 }
 
+function StringifyAndSavePropertyData(id, data) {
+    try {
+        world.setDynamicProperty(id, JSON.stringify(data));
+    } catch (e) {
+        console.warn(`[Country] Failed to save property ${id}:`, e);
+    }
+}
+
+// ====== 国スコアボード用の安全なID生成 ======
+function getCountryId(countryName) {
+    return "country_" + countryName.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+// ====== 国作成フォーム ======
 function show_form(player) {
     const form = new ui.ModalFormData();
     form.title("国作成");
@@ -21,7 +40,7 @@ function show_form(player) {
 
     form.show(player).then(response => {
         if (response.canceled) {
-            safeSend(player, "キャンセルされました");
+            player.sendMessage("§7キャンセルされました。");
             return;
         }
 
@@ -29,52 +48,59 @@ function show_form(player) {
         const pacifist = Boolean(response.formValues[1]);
 
         if (!countryName) {
-            safeSend(player, "国名を入力してください！");
+            player.sendMessage("§c国名を入力してください！");
             return;
         }
 
-        const playerStore = player.getDynamicProperty(PLAYER_COUNTRY);
-        if (playerStore) {
-            safeSend(player, "すでに国に所属しているため建国できません。");
+        // 既に国に所属しているかチェック
+        const current = player.getDynamicProperty(PLAYER_COUNTRY);
+        if (current) {
+            player.sendMessage("§cすでに国に所属しています！");
             return;
         }
 
-        const list = world.getDynamicProperty(COUNTRY_LIST) || "[]";
-        const countries = JSON.parse(list);
+        // 既存国リストを取得
+        const countries = GetAndParsePropertyData(COUNTRY_LIST);
 
+        // 重複チェック
         if (countries.find(c => c.name === countryName)) {
-            safeSend(player, `国「${countryName}」はすでに存在します。`);
+            player.sendMessage(`§c国「${countryName}」はすでに存在します。`);
             return;
         }
 
-        // 国追加
-        countries.push({ name: countryName, pacifist });
-        world.setDynamicProperty(COUNTRY_LIST, JSON.stringify(countries));
+        // 国ID生成
+        const id = getCountryId(countryName);
 
-        // プレイヤーを国に参加
+        // 国情報を追加
+        countries.push({
+            id: id,
+            name: countryName,
+            pacifist: pacifist,
+            king: player.name
+        });
+
+        // 保存
+        StringifyAndSavePropertyData(COUNTRY_LIST, countries);
+
+        // プレイヤー側に所属データを保存
         player.setDynamicProperty(PLAYER_COUNTRY, countryName);
+        player.addTag(`king`);
+        player.addTag(`country:${countryName}`);
 
-        // 国王タグを付与
-        // 国作成時、国王本人に所属国を設定
-        player.setDynamicProperty("country", countryName);
-        player.addTag("king");
-
-
-        safeSend(player, `国「${countryName}」を建国しました！ あなたは国王です。`);
+        player.sendMessage(`§a国「${countryName}」を建国しました！`);
     });
 }
 
+// ====== コマンド登録 ======
 server.system.beforeEvents.startup.subscribe(ev => {
     ev.customCommandRegistry.registerCommand({
         name: "mc:makecountry",
         description: "国を作成するコマンド",
         permissionLevel: server.CommandPermissionLevel.Any
-    }, (origin, arg) => {
-        if (origin.sourceEntity?.typeId === "minecraft:player") {
-            let player = origin.sourceEntity;
-            server.system.run(() => {
-                show_form(player);
-            });
+    }, (origin, args) => {
+        const player = origin.sourceEntity;
+        if (player?.typeId === "minecraft:player") {
+            system.run(() => show_form(player));
         }
     });
 });
